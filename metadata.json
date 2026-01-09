@@ -1,0 +1,7 @@
+{
+  "name": "Metalex SaaS - Pro Invoice & Production Management",
+  "description": "A high-end multi-tenant SaaS for window/door manufacturers featuring pixel-perfect invoice generation, auto-scaling technical drawings, and comprehensive production tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

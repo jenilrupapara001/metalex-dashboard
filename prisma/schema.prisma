@@ -1,0 +1,324 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Models
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String
+  role      UserRole   @default(STAFF)
+  avatar    String?
+  phone     String?
+  
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  
+  invoices  Invoice[]
+  auditLogs AuditLog[]
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+  @@index([email])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+}
+
+// Company Models
+model Company {
+  id              String       @id @default(cuid())
+  name            String
+  email           String       @unique
+  phone           String
+  address         String
+  website         String?
+  logo            String?
+  gstin           String?
+  
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  subscriptionId  String
+  
+  bankDetails     BankDetail?
+  users           User[]
+  clients         Client[]
+  invoices        Invoice[]
+  positions       Position[]
+  emailTemplates  EmailTemplate[]
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([subscriptionId])
+}
+
+model BankDetail {
+  id              String   @id @default(cuid())
+  accountName     String
+  accountNumber   String
+  ifsc            String
+  bankName        String
+  
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId       String   @unique
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Subscription Models
+model Subscription {
+  id              String       @id @default(cuid())
+  plan            SubscriptionPlan
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime
+  endDate         DateTime?
+  autoRenew       Boolean      @default(true)
+  
+  companies       Company[]
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAUSED
+}
+
+// Client Models
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  phone     String
+  address   String
+  gstin     String?
+  pan       String?
+  
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  
+  invoices  Invoice[]
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+  @@unique([email, companyId])
+}
+
+// Invoice Models
+model Invoice {
+  id                String        @id @default(cuid())
+  invoiceNumber     String        @unique
+  quotationNumber   String?
+  poNumber          String?
+  
+  date              DateTime
+  dueDate           DateTime?
+  
+  status            InvoiceStatus @default(DRAFT)
+  
+  client            Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  clientId          String
+  
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId         String
+  
+  createdBy         User          @relation(fields: [userId], references: [id])
+  userId            String
+  
+  items             Position[]
+  
+  subtotal          Float         @default(0)
+  freight           Float         @default(0)
+  discount          Float         @default(0)
+  discountPercent   Float         @default(0)
+  
+  cgstRate          Float         @default(9)
+  sgstRate          Float         @default(9)
+  igstRate          Float         @default(0)
+  
+  cgstAmount        Float         @default(0)
+  sgstAmount        Float         @default(0)
+  igstAmount        Float         @default(0)
+  
+  totalTax          Float         @default(0)
+  grandTotal        Float         @default(0)
+  
+  termsAndConditions String?
+  notes             String?
+  
+  sentAt            DateTime?
+  paidAt            DateTime?
+  
+  attachments       Attachment[]
+  payments          Payment[]
+  auditLogs         AuditLog[]
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([userId])
+  @@index([invoiceNumber])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+// Position/Line Item Models
+model Position {
+  id                String      @id @default(cuid())
+  position          Int
+  description       String
+  quantity          Float
+  width             Float
+  height            Float
+  areaSqft          Float
+  pricePerSqft      Float
+  total             Float
+  
+  systemType        String? // e.g., "Aluminium", "uPVC"
+  profiles          String?
+  glazing           String?
+  hardware          String?
+  finish            String?
+  positionType      PositionType @default(WINDOW)
+  
+  remarks           String?
+  
+  invoice           Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId         String
+  
+  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId         String
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([invoiceId])
+  @@index([companyId])
+}
+
+enum PositionType {
+  WINDOW
+  DOOR
+  SLIDER
+  FIXED
+  VENTILATOR
+}
+
+// Payment Models
+model Payment {
+  id          String        @id @default(cuid())
+  amount      Float
+  paymentDate DateTime
+  method      PaymentMethod
+  reference   String?
+  
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([invoiceId])
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  CREDIT_CARD
+  UPI
+  OTHER
+}
+
+// Attachment Models
+model Attachment {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String
+  fileSize  Int
+  mimeType  String
+  
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId String
+  
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// Email Template Models
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  content   String
+  isDefault Boolean  @default(false)
+  
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// Audit Log Models
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String
+  changes   String?
+  
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoiceId String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([invoiceId])
+  @@index([entityId])
+}
