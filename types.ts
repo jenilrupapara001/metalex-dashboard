@@ -56,23 +56,28 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
-  id: string;
+  _id?: string; // MongoDB ObjectId
+  id?: string;
   invoiceNumber: string;
   date: string;
   preparedBy: string;
-  clientId: string;
+  clientId?: string;
   clientName: string;
   clientAddress: string;
   items: InvoiceItem[];
   subtotal: number;
   freight: number;
-  discount: number;
-  cgstRate: number;
-  sgstRate: number;
-  igstRate: number;
+  discount?: number;
+  cgstRate?: number;
+  sgstRate?: number;
+  igstRate?: number;
+  tax?: number;
   grandTotal: number;
-  status: 'Draft' | 'Sent' | 'Paid' | 'Cancelled';
+  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'Draft' | 'Sent' | 'Paid' | 'Cancelled';
   termsAndConditions: string[];
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DashboardStats {

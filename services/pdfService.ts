@@ -2,7 +2,18 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Invoice, InvoiceItem } from '../types';
 
+/**
+ * Production-grade PDF service with proper A4 pagination, margins, and formatting
+ */
 export class PDFService {
+  // A4 dimensions in mm
+  private static readonly A4_WIDTH = 210;
+  private static readonly A4_HEIGHT = 297;
+  private static readonly MARGIN_TOP = 15;
+  private static readonly MARGIN_BOTTOM = 15;
+  private static readonly MARGIN_LEFT = 10;
+  private static readonly MARGIN_RIGHT = 10;
+
   static async generateInvoicePDF(invoice: Invoice, companyName: string): Promise<Blob> {
     const element = document.getElementById('invoice-preview');
     if (!element) {
@@ -10,7 +21,7 @@ export class PDFService {
     }
 
     try {
-      // Production-grade: scale 2 for crisp output, PNG for superior quality in PDFs
+      // Capture with high scale for crisp output on print
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -19,35 +30,74 @@ export class PDFService {
         allowTaint: true,
         windowWidth: 1024,
         windowHeight: 1400,
+        imageTimeout: 0,
+        removeContainer: true,
       });
 
-      // Use PNG for best print quality
       const imgData = canvas.toDataURL('image/png');
+      
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
         compress: true,
+        precision: 10,
       });
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth - 10; // 5mm margins
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const contentWidth = this.A4_WIDTH - this.MARGIN_LEFT - this.MARGIN_RIGHT;
+      const contentHeight = this.A4_HEIGHT - this.MARGIN_TOP - this.MARGIN_BOTTOM;
+      
+      // Calculate image dimensions to fit content area
+      const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
-      let heightLeft = imgHeight;
-      let position = 0;
+      let yPosition = this.MARGIN_TOP;
+      let remainingHeight = imgHeight;
+      let isFirstPage = true;
 
-      // First page
-      pdf.addImage(imgData, 'PNG', 5, 5, imgWidth, imgHeight);
-      heightLeft -= pageHeight - 10; // account for margins
+      while (remainingHeight > 0) {
+        if (!isFirstPage) {
+          pdf.addPage();
+          yPosition = this.MARGIN_TOP;
+        }
 
-      // Additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 5, position + 5, imgWidth, imgHeight);
-        heightLeft -= pageHeight - 10;
+        // How much of the image can fit on this page
+        const fitHeight = Math.min(remainingHeight, contentHeight);
+        
+        // Source coordinates (which part of the image to crop)
+        const sourceY = imgHeight - remainingHeight;
+        const sourceHeight = (fitHeight * canvas.width) / contentWidth;
+        
+        // Create a cropped canvas for this page
+        const pageCanvas = document.createElement('canvas');
+        const ctx = pageCanvas.getContext('2d');
+        if (!ctx) throw new Error('Failed to get canvas context');
+
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sourceHeight;
+        ctx.drawImage(
+          canvas,
+          0,
+          sourceY * (canvas.height / imgHeight),
+          canvas.width,
+          sourceHeight,
+          0,
+          0,
+          canvas.width,
+          sourceHeight
+        );
+
+        const pageImgData = pageCanvas.toDataURL('image/png');
+        pdf.addImage(
+          pageImgData,
+          'PNG',
+          this.MARGIN_LEFT,
+          yPosition,
+          contentWidth,
+          fitHeight
+        );
+
+        remainingHeight -= fitHeight;
+        isFirstPage = false;
       }
 
       return pdf.output('blob');

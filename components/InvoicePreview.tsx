@@ -25,16 +25,49 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice }) => {
   }, [invoice.items.length]);
 
   return (
-    <div className="bg-white p-8 shadow-2xl border border-slate-200 min-h-screen text-[11px] print:shadow-none print:border-none print:p-6 print:min-h-auto">
+    <div className="bg-white p-0 m-0 w-full text-[11px] print:shadow-none print:border-none print:p-0 print:m-0" style={{ width: '210mm', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-          .no-print { display: none !important; }
-          .break-inside-avoid { break-inside: avoid; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          @page {
+            size: A4;
+            margin: 15mm 10mm;
+          }
+          html, body {
+            width: 210mm;
+            height: 297mm;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            box-sizing: border-box;
+          }
+          .page-break {
+            page-break-after: always;
+            page-break-inside: avoid;
+          }
+          .no-break {
+            page-break-inside: avoid;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+          }
+        }
+        
+        body {
+          margin: 0;
+          padding: 0;
         }
       `}</style>
+      <div style={{ width: '100%', padding: '15mm 10mm', boxSizing: 'border-box' }}>
+      
+      {/* Header - Professional Title */}
+      <div className="border-b-4 border-orange-600 pb-4 mb-6">
       
       {/* Header - Professional Title */}
       <div className="border-b-4 border-orange-600 pb-4 mb-6">
@@ -269,6 +302,8 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice }) => {
           <p className="font-black text-slate-900 uppercase tracking-tight text-[11px]">For Metalex Aluminium</p>
           <p className="text-slate-400 text-[10px] uppercase font-black tracking-widest mt-1">(Authorized Signatory)</p>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );
