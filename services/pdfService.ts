@@ -10,17 +10,19 @@ export class PDFService {
     }
 
     try {
-      // Use scale 1 and JPEG compression for smaller file size
+      // Production-grade: scale 2 for crisp output, PNG for superior quality in PDFs
       const canvas = await html2canvas(element, {
-        scale: 1,
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
+        windowWidth: 1024,
+        windowHeight: 1400,
       });
 
-      // Convert to JPEG with compression instead of PNG for smaller size
-      const imgData = canvas.toDataURL('image/jpeg', 0.85);
+      // Use PNG for best print quality
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -30,22 +32,24 @@ export class PDFService {
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      const imgWidth = pageWidth - 10; // 5mm margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       let heightLeft = imgHeight;
       let position = 0;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
+      // First page
+      pdf.addImage(imgData, 'PNG', 5, 5, imgWidth, imgHeight);
+      heightLeft -= pageHeight - 10; // account for margins
 
+      // Additional pages if needed
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', 5, position + 5, imgWidth, imgHeight);
+        heightLeft -= pageHeight - 10;
       }
 
-      const filename = `${invoice.invoiceNumber}_${invoice.clientName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
       return pdf.output('blob');
     } catch (error) {
       console.error('PDF generation error:', error);

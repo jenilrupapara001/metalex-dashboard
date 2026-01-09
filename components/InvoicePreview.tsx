@@ -1,13 +1,29 @@
 
-import React from 'react';
-import { Invoice, InvoiceItem } from '../types';
-import PositionPreview from './PositionPreview';
+import React, { useEffect, useRef } from 'react';
+import { Invoice } from '../types';
+import PositionPreview, { PositionPreviewHandle } from './PositionPreview';
+import useGeneratedImages from './useGeneratedImages';
 
 interface InvoicePreviewProps {
   invoice: Invoice;
 }
 
 const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice }) => {
+  // refs for each position preview
+  const previewRefs = useRef<Array<React.RefObject<PositionPreviewHandle>>>([]);
+  // ensure refs array length matches items
+  while (previewRefs.current.length < invoice.items.length) {
+    previewRefs.current.push(React.createRef<PositionPreviewHandle>());
+  }
+
+  const { images, loading, refresh } = useGeneratedImages(previewRefs.current as any);
+
+  // refresh when invoice items change
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice.items.length]);
+
   return (
     <div className="bg-white p-8 shadow-2xl border border-slate-200 min-h-screen text-[11px] print:shadow-none print:border-none print:p-6 print:min-h-auto">
       <style>{`
@@ -102,12 +118,34 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice }) => {
                   <td colSpan={6} className="p-8 bg-white">
                     <div className="flex gap-12 items-start">
                       <div className="flex-shrink-0">
-                        <PositionPreview 
-                          width={item.width} 
-                          height={item.height} 
-                          type={item.technicalDetails.type} 
-                          className="w-64"
-                        />
+                        {/* Visible PNG preview (extracted from canvas) */}
+                        {images && images[index] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={images[index]}
+                            alt={`Diagram ${item.position}`}
+                            className="w-64 h-auto rounded-md border bg-white"
+                          />
+                        ) : (
+                          // fallback: render PositionPreview visible while image is being generated
+                          <PositionPreview
+                            ref={previewRefs.current[index]}
+                            width={item.width}
+                            height={item.height}
+                            type={item.technicalDetails.type}
+                            className="w-64"
+                          />
+                        )}
+                        {/* Hidden off-screen canvases for reliable PNG extraction */}
+                        <div style={{ position: 'absolute', left: -9999, width: 0, height: 0, overflow: 'hidden' }} aria-hidden>
+                          <PositionPreview
+                            ref={previewRefs.current[index]}
+                            width={item.width}
+                            height={item.height}
+                            type={item.technicalDetails.type}
+                            hidePreview
+                          />
+                        </div>
                       </div>
                       <div className="flex-1 space-y-5">
                         <div className="bg-slate-900 text-white px-4 py-1.5 inline-block rounded-md text-[10px] font-black uppercase tracking-widest mb-2">Technical Summary</div>
